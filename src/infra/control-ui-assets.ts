@@ -329,6 +329,16 @@ export async function ensureControlUiAssetsBuilt(
   const build = await runCommandWithTimeout([process.execPath, uiScript, "build"], {
     cwd: repoRoot,
     timeoutMs: opts?.timeoutMs ?? 10 * 60_000,
+    env: {
+      ...process.env,
+      NODE_ENV: "development",
+      CI: "true",
+      npm_config_production: "false",
+      NPM_CONFIG_PRODUCTION: "false",
+      npm_config_omit: "",
+      NPM_CONFIG_OMIT: "",
+      BUN_INSTALL_DEV: "1",
+    },
   });
   if (build.code !== 0) {
     return {

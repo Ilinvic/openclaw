@@ -313,6 +313,24 @@ function managerInstallArgs(manager: "pnpm" | "bun" | "npm") {
   return ["npm", "install"];
 }
 
+function buildUpdateExecEnv(extra?: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  return {
+    ...process.env,
+    ...extra,
+    // Update/build flows must not inherit production-only dependency omission from
+    // the long-running gateway container. Some git-hosted packages run prepare
+    // hooks that need devDependencies (for example vite) during install.
+    // CI=true keeps pnpm non-interactive in detached/container update runs.
+    NODE_ENV: "development",
+    CI: "true",
+    npm_config_production: "false",
+    NPM_CONFIG_PRODUCTION: "false",
+    npm_config_omit: "",
+    NPM_CONFIG_OMIT: "",
+    BUN_INSTALL_DEV: "1",
+  };
+}
+
 function normalizeTag(tag?: string) {
   return normalizePackageTagInput(tag, ["openclaw", DEFAULT_PACKAGE_NAME]) ?? "latest";
 }
@@ -569,7 +587,12 @@ export async function runGatewayUpdate(opts: UpdateRunnerOptions = {}): Promise<
           }
 
           const depsStep = await runStep(
-            step(`preflight deps install (${shortSha})`, managerInstallArgs(manager), worktreeDir),
+            step(
+              `preflight deps install (${shortSha})`,
+              managerInstallArgs(manager),
+              worktreeDir,
+              buildUpdateExecEnv(),
+            ),
           );
           steps.push(depsStep);
           if (depsStep.exitCode !== 0) {
@@ -577,7 +600,12 @@ export async function runGatewayUpdate(opts: UpdateRunnerOptions = {}): Promise<
           }
 
           const buildStep = await runStep(
-            step(`preflight build (${shortSha})`, managerScriptArgs(manager, "build"), worktreeDir),
+            step(
+              `preflight build (${shortSha})`,
+              managerScriptArgs(manager, "build"),
+              worktreeDir,
+              buildUpdateExecEnv(),
+            ),
           );
           steps.push(buildStep);
           if (buildStep.exitCode !== 0) {
@@ -585,7 +613,12 @@ export async function runGatewayUpdate(opts: UpdateRunnerOptions = {}): Promise<
           }
 
           const lintStep = await runStep(
-            step(`preflight lint (${shortSha})`, managerScriptArgs(manager, "lint"), worktreeDir),
+            step(
+              `preflight lint (${shortSha})`,
+              managerScriptArgs(manager, "lint"),
+              worktreeDir,
+              buildUpdateExecEnv(),
+            ),
           );
           steps.push(lintStep);
           if (lintStep.exitCode !== 0) {
@@ -696,7 +729,9 @@ export async function runGatewayUpdate(opts: UpdateRunnerOptions = {}): Promise<
 
     const manager = await detectPackageManager(gitRoot);
 
-    const depsStep = await runStep(step("deps install", managerInstallArgs(manager), gitRoot));
+    const depsStep = await runStep(
+      step("deps install", managerInstallArgs(manager), gitRoot, buildUpdateExecEnv()),
+    );
     steps.push(depsStep);
     if (depsStep.exitCode !== 0) {
       return {
@@ -710,7 +745,9 @@ export async function runGatewayUpdate(opts: UpdateRunnerOptions = {}): Promise<
       };
     }
 
-    const buildStep = await runStep(step("build", managerScriptArgs(manager, "build"), gitRoot));
+    const buildStep = await runStep(
+      step("build", managerScriptArgs(manager, "build"), gitRoot, buildUpdateExecEnv()),
+    );
     steps.push(buildStep);
     if (buildStep.exitCode !== 0) {
       return {
@@ -725,7 +762,7 @@ export async function runGatewayUpdate(opts: UpdateRunnerOptions = {}): Promise<
     }
 
     const uiBuildStep = await runStep(
-      step("ui:build", managerScriptArgs(manager, "ui:build"), gitRoot),
+      step("ui:build", managerScriptArgs(manager, "ui:build"), gitRoot, buildUpdateExecEnv()),
     );
     steps.push(uiBuildStep);
     if (uiBuildStep.exitCode !== 0) {
@@ -770,7 +807,12 @@ export async function runGatewayUpdate(opts: UpdateRunnerOptions = {}): Promise<
     const doctorNodePath = await resolveStableNodePath(process.execPath);
     const doctorArgv = [doctorNodePath, doctorEntry, "doctor", "--non-interactive", "--fix"];
     const doctorStep = await runStep(
-      step("openclaw doctor", doctorArgv, gitRoot, { OPENCLAW_UPDATE_IN_PROGRESS: "1" }),
+      step(
+        "openclaw doctor",
+        doctorArgv,
+        gitRoot,
+        buildUpdateExecEnv({ OPENCLAW_UPDATE_IN_PROGRESS: "1" }),
+      ),
     );
     steps.push(doctorStep);
 
@@ -778,7 +820,11 @@ export async function runGatewayUpdate(opts: UpdateRunnerOptions = {}): Promise<
     if (!uiIndexHealth.exists) {
       const repairArgv = managerScriptArgs(manager, "ui:build");
       const started = Date.now();
-      const repairResult = await runCommand(repairArgv, { cwd: gitRoot, timeoutMs });
+      const repairResult = await runCommand(repairArgv, {
+        cwd: gitRoot,
+        timeoutMs,
+        env: buildUpdateExecEnv(),
+      });
       const repairStep: UpdateStepResult = {
         name: "ui:build (post-doctor repair)",
         command: repairArgv.join(" "),
