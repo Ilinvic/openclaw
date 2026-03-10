@@ -159,6 +159,22 @@ function resolveScriptAction(action) {
   return null;
 }
 
+function createUiInstallEnv(action) {
+  if (action !== "build") {
+    return process.env;
+  }
+  return {
+    ...process.env,
+    NODE_ENV: "development",
+    CI: process.env.CI ?? "true",
+    npm_config_production: "false",
+    NPM_CONFIG_PRODUCTION: "false",
+    npm_config_omit: "",
+    NPM_CONFIG_OMIT: "",
+    BUN_INSTALL_DEV: "1",
+  };
+}
+
 export function main(argv = process.argv.slice(2)) {
   const [action, ...rest] = argv;
   if (!action) {
@@ -184,9 +200,8 @@ export function main(argv = process.argv.slice(2)) {
   }
 
   if (!depsInstalled(action === "test" ? "test" : "build")) {
-    const installEnv =
-      action === "build" ? { ...process.env, NODE_ENV: "production" } : process.env;
-    const installArgs = action === "build" ? ["install", "--prod"] : ["install"];
+    const installEnv = createUiInstallEnv(action);
+    const installArgs = ["install"];
     runSync(runner.cmd, installArgs, installEnv);
   }
 
