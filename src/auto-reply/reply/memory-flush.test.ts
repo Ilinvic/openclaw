@@ -61,4 +61,11 @@ describe("DEFAULT_MEMORY_FLUSH_PROMPT", () => {
     expect(DEFAULT_MEMORY_FLUSH_PROMPT).toContain("timestamped variant");
     expect(DEFAULT_MEMORY_FLUSH_PROMPT).toContain("YYYY-MM-DD.md");
   });
+
+  it("requires structured capture fields for durable planning continuity", () => {
+    expect(DEFAULT_MEMORY_FLUSH_PROMPT.toLowerCase()).toContain("decisions");
+    expect(DEFAULT_MEMORY_FLUSH_PROMPT.toLowerCase()).toContain("constraints");
+    expect(DEFAULT_MEMORY_FLUSH_PROMPT.toLowerCase()).toContain("open questions");
+    expect(DEFAULT_MEMORY_FLUSH_PROMPT.toLowerCase()).toContain("owners");
+  });
 });

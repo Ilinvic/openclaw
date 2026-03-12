@@ -27,6 +27,7 @@ export const DEFAULT_MEMORY_FLUSH_PROMPT = [
   MEMORY_FLUSH_TARGET_HINT,
   MEMORY_FLUSH_READ_ONLY_HINT,
   MEMORY_FLUSH_APPEND_ONLY_HINT,
+  "Capture the essentials in a structured way: decisions taken, active constraints, open questions, task owners, and any detail whose loss would break the plan.",
   "Do NOT create timestamped variant files (e.g., YYYY-MM-DD-HHMM.md); always use the canonical YYYY-MM-DD.md filename.",
   `If nothing to store, reply with ${SILENT_REPLY_TOKEN}.`,
 ].join(" ");
